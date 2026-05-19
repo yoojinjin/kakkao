@@ -12,6 +12,7 @@
     }
 
     body {
+      width: 100%;
       height: 100vh;
       overflow: hidden;
       font-family: Arial, sans-serif;
@@ -19,46 +20,51 @@
 
     .container {
       display: flex;
+      width: 100%;
       height: 100vh;
     }
 
     .sidebar {
-      width: 35%;
-      min-width: 350px;
+      width: 300px;
+      min-width: 300px;
+      height: 100vh;
+      background: white;
       border-right: 1px solid #ddd;
       display: flex;
       flex-direction: column;
-      background: white;
     }
 
     .header {
-      padding: 18px;
+      padding: 16px;
       border-bottom: 1px solid #eee;
     }
 
     .header h2 {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+
+    .intro {
+      font-size: 12px;
+      color: #666;
+      line-height: 1.4;
       margin-bottom: 12px;
     }
 
-    .tabs,
-    .controls,
-    .pagination {
+    .tabs {
       display: flex;
       gap: 8px;
-      margin-top: 10px;
-    }
-
-    button {
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: bold;
+      margin-bottom: 10px;
     }
 
     .tab-button {
       flex: 1;
       padding: 10px;
+      border: none;
+      border-radius: 8px;
       background: #eee;
+      cursor: pointer;
+      font-weight: bold;
     }
 
     .tab-button.active {
@@ -68,27 +74,44 @@
     .search-area {
       display: flex;
       gap: 8px;
-      margin-top: 10px;
+      margin-bottom: 10px;
     }
 
     .search-area input {
       flex: 1;
-      padding: 11px;
+      padding: 10px;
       border: 1px solid #ccc;
       border-radius: 8px;
+      font-size: 13px;
     }
 
     .search-area button {
-      padding: 11px 15px;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 8px;
       background: #222;
       color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .controls,
+    .pagination {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
     }
 
     .control-button,
     .page-button {
       flex: 1;
-      padding: 10px;
+      padding: 9px;
+      border: none;
+      border-radius: 8px;
       background: #f1f1f1;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
     }
 
     .page-button:disabled {
@@ -100,18 +123,18 @@
     .page-info {
       text-align: center;
       margin-top: 8px;
-      font-size: 13px;
+      font-size: 12px;
       color: #666;
     }
 
     .result-list {
       flex: 1;
       overflow-y: auto;
-      padding: 12px;
+      padding: 10px;
     }
 
     .place-item {
-      padding: 14px;
+      padding: 12px;
       border-bottom: 1px solid #eee;
       cursor: pointer;
     }
@@ -122,14 +145,15 @@
 
     .place-name {
       font-weight: bold;
-      font-size: 17px;
+      font-size: 15px;
       margin-bottom: 6px;
     }
 
     .place-info {
-      font-size: 13px;
+      font-size: 12px;
       color: #666;
       margin-bottom: 4px;
+      line-height: 1.4;
     }
 
     .category-label {
@@ -137,22 +161,25 @@
       margin-top: 5px;
       padding: 4px 7px;
       border-radius: 6px;
-      font-size: 12px;
+      font-size: 11px;
       background: #f0f0f0;
     }
 
     .map-section {
       flex: 1;
+      height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
     #map {
-      flex: 2;
+      width: 100%;
+      height: 70vh;
     }
 
     #roadview {
-      flex: 1;
+      width: 100%;
+      height: 30vh;
       border-top: 2px solid #ddd;
     }
   </style>
@@ -166,13 +193,18 @@
       <div class="header">
         <h2>🍽 지역별 맛집 지도</h2>
 
+        <p class="intro">
+          현재 위치 주변의 맛집과 카페를 카테고리별로 빠르게 찾아볼 수 있어
+          외식 장소를 쉽고 편하게 탐색할 수 있어요.
+        </p>
+
         <div class="tabs">
           <button class="tab-button active" id="foodTab">음식점</button>
           <button class="tab-button" id="cafeTab">카페</button>
         </div>
 
         <div class="search-area">
-          <input id="keywordInput" type="text" placeholder="예: 홍대 파스타 / 성수 카페" />
+          <input id="keywordInput" type="text" placeholder="예: 홍대 파스타 / 성수" />
           <button id="searchButton">검색</button>
         </div>
 
@@ -217,7 +249,7 @@
     let currentPage = 1;
     let trafficVisible = false;
 
-    // 카카오맵 로드 후 실행
+    // 카카오맵이 완전히 로드된 뒤 실행
     kakao.maps.load(function () {
       initializeMap();
     });
@@ -275,6 +307,7 @@
       currentMode = "category";
       currentCategory = categoryCode;
       currentPage = pageNumber;
+      currentKeyword = "";
 
       removeMarkers();
 
@@ -301,15 +334,20 @@
 
     // 키워드 검색
     function searchByKeyword(pageNumber) {
-      const keyword = document.getElementById("keywordInput").value.trim();
+      const inputKeyword = document.getElementById("keywordInput").value.trim();
 
-      if (!keyword && !currentKeyword) {
+      if (!inputKeyword && !currentKeyword) {
         alert("검색어를 입력해주세요.");
         return;
       }
 
-      if (keyword) {
-        currentKeyword = keyword;
+      // 현재 탭에 따라 음식점 또는 카페 검색으로 제한
+      if (inputKeyword) {
+        if (currentCategory === "FD6") {
+          currentKeyword = inputKeyword + " 음식점";
+        } else if (currentCategory === "CE7") {
+          currentKeyword = inputKeyword + " 카페";
+        }
       }
 
       currentMode = "keyword";
@@ -329,15 +367,26 @@
       placesService.keywordSearch(currentKeyword, function (data, status, pagination) {
         if (status === kakao.maps.services.Status.OK) {
           currentPagination = pagination;
-          displayPlaces(data);
-          updatePageButtons(pagination);
+
+          // 현재 탭의 카테고리와 맞는 결과만 남기기
+          const filteredData = data.filter(function (place) {
+            return place.category_group_code === currentCategory;
+          });
+
+          if (filteredData.length > 0) {
+            displayPlaces(filteredData);
+            updatePageButtons(pagination);
+          } else {
+            showNoResult();
+          }
+
         } else {
           showNoResult();
         }
       }, option);
     }
 
-    // 검색 결과 출력
+    // 검색 결과 표시
     function displayPlaces(places) {
       const resultList = document.getElementById("resultList");
       resultList.innerHTML = "";
@@ -346,12 +395,11 @@
 
       places.forEach(function (place) {
         const position = new kakao.maps.LatLng(place.y, place.x);
-        const markerImage = createMarkerImage(place.category_group_code);
 
         const marker = new kakao.maps.Marker({
           map: map,
           position: position,
-          image: markerImage
+          image: createMarkerImage(place.category_group_code)
         });
 
         markerList.push(marker);
@@ -363,6 +411,7 @@
         item.innerHTML = `
           <div class="place-name">${place.place_name}</div>
           <div class="place-info">📍 ${place.road_address_name || place.address_name}</div>
+          <div class="place-info">📞 ${place.phone || "전화번호 없음"}</div>
           <div class="place-info">🕒 영업시간은 상세보기에서 확인</div>
           <span class="category-label">${getCategoryName(place.category_group_code)}</span>
         `;
@@ -385,18 +434,15 @@
       map.setBounds(bounds);
     }
 
-    // 카테고리별 다른 마커 이미지
+    // 카테고리별 다른 마커
     function createMarkerImage(categoryCode) {
       let imageUrl;
 
       if (categoryCode === "FD6") {
-        // 음식점 마커
         imageUrl = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png";
       } else if (categoryCode === "CE7") {
-        // 카페 마커
         imageUrl = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png";
       } else {
-        // 기타 검색 결과 마커
         imageUrl = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_blue.png";
       }
 
@@ -405,20 +451,14 @@
       return new kakao.maps.MarkerImage(imageUrl, imageSize);
     }
 
-    // 카테고리 이름 변환
+    // 카테고리 이름 표시
     function getCategoryName(categoryCode) {
-      if (categoryCode === "FD6") {
-        return "음식점";
-      }
-
-      if (categoryCode === "CE7") {
-        return "카페";
-      }
-
+      if (categoryCode === "FD6") return "음식점";
+      if (categoryCode === "CE7") return "카페";
       return "기타 장소";
     }
 
-    // 상세 팝업
+    // 마커 클릭 시 상세 팝업
     function showDetailPopup(place, marker) {
       const content = `
         <div style="padding:12px; width:240px; font-size:13px; line-height:1.6;">
@@ -447,42 +487,33 @@
     // 페이지 버튼 업데이트
     function updatePageButtons(pagination) {
       document.getElementById("pageInfo").textContent = currentPage + "페이지";
-
       document.getElementById("prevButton").disabled = currentPage <= 1;
       document.getElementById("nextButton").disabled = !pagination.hasNextPage;
     }
 
     // 이전 페이지
     function goPrevPage() {
-      if (currentPage <= 1) {
-        return;
-      }
-
-      const nextPage = currentPage - 1;
+      if (currentPage <= 1) return;
 
       if (currentMode === "category") {
-        searchByCategory(currentCategory, nextPage);
+        searchByCategory(currentCategory, currentPage - 1);
       } else {
-        searchByKeyword(nextPage);
+        searchByKeyword(currentPage - 1);
       }
     }
 
     // 다음 페이지
     function goNextPage() {
-      if (!currentPagination || !currentPagination.hasNextPage) {
-        return;
-      }
-
-      const nextPage = currentPage + 1;
+      if (!currentPagination || !currentPagination.hasNextPage) return;
 
       if (currentMode === "category") {
-        searchByCategory(currentCategory, nextPage);
+        searchByCategory(currentCategory, currentPage + 1);
       } else {
-        searchByKeyword(nextPage);
+        searchByKeyword(currentPage + 1);
       }
     }
 
-    // 결과 없음 표시
+    // 검색 결과 없음
     function showNoResult() {
       removeMarkers();
 
@@ -494,7 +525,7 @@
       document.getElementById("nextButton").disabled = true;
     }
 
-    // 기존 마커 지우기
+    // 기존 마커 제거
     function removeMarkers() {
       markerList.forEach(function (marker) {
         marker.setMap(null);
@@ -507,7 +538,7 @@
       }
     }
 
-    // 교통정보 표시
+    // 교통정보 켜기/끄기
     function toggleTraffic() {
       if (trafficVisible) {
         map.removeOverlayMapTypeId(kakao.maps.MapTypeId.TRAFFIC);
@@ -518,9 +549,9 @@
       }
     }
 
-    // 음식점 탭
+    // 음식점 탭 클릭
     document.getElementById("foodTab").addEventListener("click", function () {
-      currentKeyword = "";
+      document.getElementById("keywordInput").value = "";
       currentCategory = "FD6";
 
       document.getElementById("foodTab").classList.add("active");
@@ -529,9 +560,9 @@
       searchByCategory("FD6", 1);
     });
 
-    // 카페 탭
+    // 카페 탭 클릭
     document.getElementById("cafeTab").addEventListener("click", function () {
-      currentKeyword = "";
+      document.getElementById("keywordInput").value = "";
       currentCategory = "CE7";
 
       document.getElementById("cafeTab").classList.add("active");
@@ -540,7 +571,7 @@
       searchByCategory("CE7", 1);
     });
 
-    // 검색 버튼
+    // 검색 버튼 클릭
     document.getElementById("searchButton").addEventListener("click", function () {
       currentKeyword = "";
       searchByKeyword(1);
