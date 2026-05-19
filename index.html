@@ -2,6 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>지역별 맛집 지도</title>
 
   <style>
@@ -23,6 +25,7 @@
       display: flex;
       width: 100vw;
       height: 100vh;
+      overflow: hidden;
     }
 
     .sidebar {
@@ -39,6 +42,7 @@
     .header {
       padding: 16px;
       border-bottom: 1px solid #eee;
+      background: white;
     }
 
     .header h2 {
@@ -64,7 +68,7 @@
       padding: 10px;
       border: none;
       border-radius: 8px;
-      background: #eee;
+      background: #eeeeee;
       cursor: pointer;
       font-weight: bold;
     }
@@ -117,8 +121,8 @@
     }
 
     .page-button:disabled {
-      background: #ddd;
-      color: #999;
+      background: #dddddd;
+      color: #999999;
       cursor: not-allowed;
     }
 
@@ -126,18 +130,19 @@
       text-align: center;
       margin-top: 8px;
       font-size: 12px;
-      color: #666;
+      color: #666666;
     }
 
     .result-list {
       flex: 1;
       overflow-y: auto;
       padding: 10px;
+      background: white;
     }
 
     .place-item {
       padding: 12px;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid #eeeeee;
       cursor: pointer;
     }
 
@@ -153,7 +158,7 @@
 
     .place-info {
       font-size: 12px;
-      color: #666;
+      color: #666666;
       margin-bottom: 4px;
       line-height: 1.4;
     }
@@ -170,11 +175,18 @@
     .map-section {
       flex: 1;
       height: 100vh;
+      position: relative;
+      overflow: hidden;
+      background: white;
     }
 
     #map {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
-      height: 100%;
+      height: 100vh;
+      min-height: 100vh;
     }
 
     .popup-button {
@@ -195,7 +207,9 @@
   <div class="container">
 
     <div class="sidebar">
+
       <div class="header">
+
         <h2>🍽 지역별 맛집 지도</h2>
 
         <p class="intro">
@@ -209,7 +223,11 @@
         </div>
 
         <div class="search-area">
-          <input id="keywordInput" type="text" placeholder="예: 홍대 파스타 / 성수" />
+          <input
+            id="keywordInput"
+            type="text"
+            placeholder="예: 홍대 파스타 / 성수"
+          />
           <button id="searchButton">검색</button>
         </div>
 
@@ -224,9 +242,11 @@
         </div>
 
         <div class="page-info" id="pageInfo">1페이지</div>
+
       </div>
 
       <div class="result-list" id="resultList"></div>
+
     </div>
 
     <div class="map-section">
@@ -243,7 +263,9 @@
     let infoWindow;
 
     let currentPosition;
+    let currentLocationMarker;
     let markerList = [];
+
     let currentCategory = "FD6";
     let currentMode = "category";
     let currentKeyword = "";
@@ -265,8 +287,16 @@
         level: 5
       });
 
+      // 지도 크기 계산 오류 방지
+      setTimeout(function () {
+        map.relayout();
+        map.setCenter(defaultPosition);
+      }, 100);
+
       placesService = new kakao.maps.services.Places();
-      infoWindow = new kakao.maps.InfoWindow({ removable: true });
+      infoWindow = new kakao.maps.InfoWindow({
+        removable: true
+      });
 
       getCurrentLocation();
       searchByCategory("FD6", 1);
@@ -279,27 +309,39 @@
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(function (position) {
-        currentPosition = new kakao.maps.LatLng(
-          position.coords.latitude,
-          position.coords.longitude
-        );
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          currentPosition = new kakao.maps.LatLng(
+            position.coords.latitude,
+            position.coords.longitude
+          );
 
-        map.setCenter(currentPosition);
+          map.relayout();
+          map.setCenter(currentPosition);
+          map.setLevel(5);
 
-        const currentMarker = new kakao.maps.Marker({
-          map: map,
-          position: currentPosition
-        });
+          if (currentLocationMarker) {
+            currentLocationMarker.setMap(null);
+          }
 
-        const currentInfo = new kakao.maps.InfoWindow({
-          content: "<div style='padding:8px;'>📍 현재 위치</div>"
-        });
+          currentLocationMarker = new kakao.maps.Marker({
+            map: map,
+            position: currentPosition
+          });
 
-        currentInfo.open(map, currentMarker);
+          const currentInfo = new kakao.maps.InfoWindow({
+            content: "<div style='padding:8px;'>📍 현재 위치</div>"
+          });
 
-        searchByCategory(currentCategory, 1);
-      });
+          currentInfo.open(map, currentLocationMarker);
+
+          searchByCategory(currentCategory, 1);
+        },
+
+        function () {
+          alert("위치 권한을 허용하면 현재 위치 주변 장소를 볼 수 있습니다.");
+        }
+      );
     }
 
     // 카테고리 검색
@@ -321,15 +363,19 @@
         option.radius = 3000;
       }
 
-      placesService.categorySearch(categoryCode, function (data, status, pagination) {
-        if (status === kakao.maps.services.Status.OK) {
-          currentPagination = pagination;
-          displayPlaces(data);
-          updatePageButtons(pagination);
-        } else {
-          showNoResult();
-        }
-      }, option);
+      placesService.categorySearch(
+        categoryCode,
+        function (data, status, pagination) {
+          if (status === kakao.maps.services.Status.OK) {
+            currentPagination = pagination;
+            displayPlaces(data);
+            updatePageButtons(pagination);
+          } else {
+            showNoResult();
+          }
+        },
+        option
+      );
     }
 
     // 키워드 검색
@@ -362,27 +408,31 @@
 
       if (currentPosition) {
         option.location = currentPosition;
+        option.radius = 3000;
       }
 
-      placesService.keywordSearch(currentKeyword, function (data, status, pagination) {
-        if (status === kakao.maps.services.Status.OK) {
-          currentPagination = pagination;
+      placesService.keywordSearch(
+        currentKeyword,
+        function (data, status, pagination) {
+          if (status === kakao.maps.services.Status.OK) {
+            currentPagination = pagination;
 
-          const filteredData = data.filter(function (place) {
-            return place.category_group_code === currentCategory;
-          });
+            const filteredData = data.filter(function (place) {
+              return place.category_group_code === currentCategory;
+            });
 
-          if (filteredData.length > 0) {
-            displayPlaces(filteredData);
-            updatePageButtons(pagination);
+            if (filteredData.length > 0) {
+              displayPlaces(filteredData);
+              updatePageButtons(pagination);
+            } else {
+              showNoResult();
+            }
           } else {
             showNoResult();
           }
-
-        } else {
-          showNoResult();
-        }
-      }, option);
+        },
+        option
+      );
     }
 
     // 검색 결과 표시
@@ -428,7 +478,13 @@
         resultList.appendChild(item);
       });
 
-      map.setBounds(bounds);
+      if (places.length > 0) {
+        map.setBounds(bounds);
+
+        setTimeout(function () {
+          map.relayout();
+        }, 100);
+      }
     }
 
     // 카테고리별 다른 마커
@@ -444,13 +500,20 @@
       }
 
       const imageSize = new kakao.maps.Size(24, 35);
+
       return new kakao.maps.MarkerImage(imageUrl, imageSize);
     }
 
     // 카테고리 이름 표시
     function getCategoryName(categoryCode) {
-      if (categoryCode === "FD6") return "음식점";
-      if (categoryCode === "CE7") return "카페";
+      if (categoryCode === "FD6") {
+        return "음식점";
+      }
+
+      if (categoryCode === "CE7") {
+        return "카페";
+      }
+
       return "기타 장소";
     }
 
@@ -476,13 +539,16 @@
     // 페이지 버튼 업데이트
     function updatePageButtons(pagination) {
       document.getElementById("pageInfo").textContent = currentPage + "페이지";
+
       document.getElementById("prevButton").disabled = currentPage <= 1;
       document.getElementById("nextButton").disabled = !pagination.hasNextPage;
     }
 
     // 이전 페이지
     function goPrevPage() {
-      if (currentPage <= 1) return;
+      if (currentPage <= 1) {
+        return;
+      }
 
       if (currentMode === "category") {
         searchByCategory(currentCategory, currentPage - 1);
@@ -493,7 +559,9 @@
 
     // 다음 페이지
     function goNextPage() {
-      if (!currentPagination || !currentPagination.hasNextPage) return;
+      if (!currentPagination || !currentPagination.hasNextPage) {
+        return;
+      }
 
       if (currentMode === "category") {
         searchByCategory(currentCategory, currentPage + 1);
@@ -577,6 +645,7 @@
     // 현재 위치 버튼
     document.getElementById("locationButton").addEventListener("click", function () {
       if (currentPosition) {
+        map.relayout();
         map.setCenter(currentPosition);
         map.setLevel(5);
       } else {
@@ -590,6 +659,13 @@
     // 페이지 버튼 클릭
     document.getElementById("prevButton").addEventListener("click", goPrevPage);
     document.getElementById("nextButton").addEventListener("click", goNextPage);
+
+    // 창 크기 변경 시 지도 다시 계산
+    window.addEventListener("resize", function () {
+      if (map) {
+        map.relayout();
+      }
+    });
   </script>
 
 </body>
