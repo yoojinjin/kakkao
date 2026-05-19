@@ -11,16 +11,17 @@
       padding: 0;
     }
 
+    html,
     body {
       width: 100%;
-      height: 100vh;
+      height: 100%;
       overflow: hidden;
       font-family: Arial, sans-serif;
     }
 
     .container {
       display: flex;
-      width: 100%;
+      width: 100vw;
       height: 100vh;
     }
 
@@ -32,6 +33,7 @@
       border-right: 1px solid #ddd;
       display: flex;
       flex-direction: column;
+      z-index: 10;
     }
 
     .header {
@@ -168,19 +170,22 @@
     .map-section {
       flex: 1;
       height: 100vh;
-      display: flex;
-      flex-direction: column;
     }
 
     #map {
       width: 100%;
-      height: 70vh;
+      height: 100%;
     }
 
-    #roadview {
-      width: 100%;
-      height: 30vh;
-      border-top: 2px solid #ddd;
+    .popup-button {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 5px 8px;
+      background: #fee500;
+      color: #222;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -226,7 +231,6 @@
 
     <div class="map-section">
       <div id="map"></div>
-      <div id="roadview"></div>
     </div>
 
   </div>
@@ -235,8 +239,6 @@
 
   <script>
     let map;
-    let roadview;
-    let roadviewClient;
     let placesService;
     let infoWindow;
 
@@ -263,8 +265,6 @@
         level: 5
       });
 
-      roadview = new kakao.maps.Roadview(document.getElementById("roadview"));
-      roadviewClient = new kakao.maps.RoadviewClient();
       placesService = new kakao.maps.services.Places();
       infoWindow = new kakao.maps.InfoWindow({ removable: true });
 
@@ -341,7 +341,7 @@
         return;
       }
 
-      // 현재 탭에 따라 음식점 또는 카페 검색으로 제한
+      // 음식점 탭에서는 음식점만, 카페 탭에서는 카페만 검색
       if (inputKeyword) {
         if (currentCategory === "FD6") {
           currentKeyword = inputKeyword + " 음식점";
@@ -368,7 +368,6 @@
         if (status === kakao.maps.services.Status.OK) {
           currentPagination = pagination;
 
-          // 현재 탭의 카테고리와 맞는 결과만 남기기
           const filteredData = data.filter(function (place) {
             return place.category_group_code === currentCategory;
           });
@@ -420,12 +419,10 @@
           map.setCenter(position);
           map.setLevel(4);
           showDetailPopup(place, marker);
-          connectRoadview(position);
         });
 
         kakao.maps.event.addListener(marker, "click", function () {
           showDetailPopup(place, marker);
-          connectRoadview(position);
         });
 
         resultList.appendChild(item);
@@ -447,7 +444,6 @@
       }
 
       const imageSize = new kakao.maps.Size(24, 35);
-
       return new kakao.maps.MarkerImage(imageUrl, imageSize);
     }
 
@@ -460,28 +456,21 @@
 
     // 마커 클릭 시 상세 팝업
     function showDetailPopup(place, marker) {
+      const roadviewUrl =
+        "https://map.kakao.com/link/roadview/" + place.y + "," + place.x;
+
       const content = `
-        <div style="padding:12px; width:240px; font-size:13px; line-height:1.6;">
+        <div style="padding:12px; width:245px; font-size:13px; line-height:1.6;">
           <strong style="font-size:15px;">${place.place_name}</strong><br>
           📍 ${place.road_address_name || place.address_name}<br>
           📞 ${place.phone || "전화번호 없음"}<br>
-          <a href="${place.place_url}" target="_blank">카카오맵 상세보기</a>
+          <a href="${place.place_url}" target="_blank">카카오맵 상세보기</a><br>
+          <a class="popup-button" href="${roadviewUrl}" target="_blank">로드뷰 열기</a>
         </div>
       `;
 
       infoWindow.setContent(content);
       infoWindow.open(map, marker);
-    }
-
-    // 로드뷰 연동
-    function connectRoadview(position) {
-      roadviewClient.getNearestPanoId(position, 50, function (panoId) {
-        if (panoId) {
-          roadview.setPanoId(panoId, position);
-        } else {
-          alert("이 장소 주변에는 로드뷰가 없습니다.");
-        }
-      });
     }
 
     // 페이지 버튼 업데이트
@@ -595,10 +584,10 @@
       }
     });
 
-    // 교통정보 버튼
+    // 교통정보 버튼 클릭
     document.getElementById("trafficButton").addEventListener("click", toggleTraffic);
 
-    // 페이지 버튼
+    // 페이지 버튼 클릭
     document.getElementById("prevButton").addEventListener("click", goPrevPage);
     document.getElementById("nextButton").addEventListener("click", goNextPage);
   </script>
